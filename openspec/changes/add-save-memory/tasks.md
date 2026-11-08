@@ -13,13 +13,13 @@
 
 ## 3. 文档
 
-- [ ] 3.1 编写中英双语 `README.md`：项目定位、安装步骤（clone → 复制到全局 → 修改 vault 路径）、使用演示、路线图。验证：按 README 步骤可在新机器完成安装
+- [x] 3.1 编写中英双语 `README.md`：项目定位、安装步骤（clone → 复制到全局 → 修改 vault 路径）、使用演示、路线图。验证：按 README 步骤可在新机器完成安装
 
 ## 4. 验证
 
-- [ ] 4.1 运行 `openspec validate add-save-memory`。验证：无 error
-- [ ] 4.2 按 skill 规则向 vault `AI记忆/` 写入 2 篇测试笔记（含 frontmatter、双链、类型化边），用 Grep 验证 `/recall` 逻辑可命中，随后删除测试文件。验证：vault 恢复原状且写入格式合法
+- [x] 4.1 运行 `openspec validate add-save-memory`。验证：无 error
+- [x] 4.2 按 skill 规则向 vault `AI记忆/` 写入 2 篇测试笔记（含 frontmatter、双链、类型化边），用 Grep 验证 `/recall` 逻辑可命中，随后删除测试文件。验证：vault 恢复原状且写入格式合法
 
 ## 5. 版本管理
 
-- [ ] 5.1 `git init` + 编写 `.gitignore` + 首次提交全部文件。验证：`git log` 显示初始提交，`git status` 干净
+- [x] 5.1 `git init` + 编写 `.gitignore` + 首次提交全部文件。验证：`git log` 显示初始提交，`git status` 干净
