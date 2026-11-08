@@ -1,0 +1,6 @@
+# Claude Code
+.claude/
+
+# OpenSpec 运行产物
+openspec/changes/archive/*
+!openspec/changes/archive/.gitkeep
