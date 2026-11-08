@@ -31,8 +31,8 @@
 ## 6. 文档与版本
 
 - [x] 6.1 README 双语更新（配置文件、/save-memory-setup、plugin 安装路径、opt-in hooks 说明）、ROADMAP 勾选 v3、版本 0.3.0。验证：按 README 可在新机器完成安装
-- [ ] 6.2 全局安装同步（SKILL.md/references/scripts/hooks）+ git 提交。验证：~/.claude/skills/save-memory/ 与 repo 一致，status 干净
+- [x] 6.2 全局安装同步（SKILL.md/references/scripts/hooks）+ git 提交。验证：~/.claude/skills/save-memory/ 与 repo 一致，status 干净
 
 ## 7. 收尾
 
-- [ ] 7.1 `openspec validate add-v3-productization` 通过，全部任务勾选。验证：validate 无 error
+- [x] 7.1 `openspec validate add-v3-productization` 通过，全部任务勾选。验证：validate 无 error
