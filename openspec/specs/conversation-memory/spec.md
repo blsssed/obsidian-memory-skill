@@ -1,10 +1,9 @@
-# Spec Delta
+# conversation-memory Specification
 
 ## Purpose
-
 conversation-memory 能力负责把 Claude Code 对话中产生的可复用知识沉淀到本地 Obsidian vault，并提供按需检索召回，使跨项目的经验以结构化笔记形式持续积累并融入用户知识图谱。
 
-## ADDED Requirements
+## Requirements
 
 ### Requirement: 对话知识提取
 
