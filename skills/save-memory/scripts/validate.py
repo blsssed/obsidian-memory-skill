@@ -107,6 +107,9 @@ def main():
     args = ap.parse_args()
 
     cfg = get_config()
+    if not cfg["vault"]:
+        print("未配置 vault：请运行 /save-memory-setup，或在 ~/.claude/save-memory.json 写入 {\"vault\": \"<你的 Obsidian 仓库路径>\"}")
+        return 1
     if args.note:
         targets = [Path(args.note)]
         if not targets[0].is_file():

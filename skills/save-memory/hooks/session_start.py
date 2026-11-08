@@ -15,7 +15,7 @@ from pathlib import Path
 
 # ── 配置副本：与 scripts/memory_config.py（canonical）保持同步，改动需三处同步 ──
 CONFIG_PATH = Path.home() / ".claude" / "save-memory.json"
-DEFAULTS = {"vault": r"C:\Users\HONOR\Documents\Obsidian Vault", "memory_dir": "AI记忆"}
+DEFAULTS = {"vault": "", "memory_dir": "AI记忆"}
 
 
 def load_config():
@@ -60,8 +60,8 @@ def parse_note_meta(path):
 
 
 def main():
-    if not MEM_DIR.is_dir():
-        return  # 没有记忆目录，静默跳过
+    if not CFG["vault"] or not MEM_DIR.is_dir():
+        return  # 未配置 vault 或没有记忆目录，静默跳过
     rows = []
     for p in sorted(MEM_DIR.glob("*.md")):   # 不递归 snippets/
         meta = parse_note_meta(p)

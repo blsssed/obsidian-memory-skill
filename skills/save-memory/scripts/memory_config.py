@@ -17,9 +17,9 @@ from pathlib import Path
 
 CONFIG_PATH = Path.home() / ".claude" / "save-memory.json"
 
-# 内置默认（最低优先级；他人安装后应运行 /save-memory-setup 覆盖）
+# 内置默认（最低优先级；vault 留空 = 未配置，工具会提示运行 /save-memory-setup）
 DEFAULTS = {
-    "vault": r"C:\Users\HONOR\Documents\Obsidian Vault",
+    "vault": "",
     "memory_dir": "AI记忆",
     "snippet_dir": "snippets",
 }

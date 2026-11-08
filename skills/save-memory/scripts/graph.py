@@ -22,7 +22,7 @@ from memory_config import get_config   # 同目录模块，脚本运行时 sys.p
 
 # ── 配置常量区（调参只改这里） ─────────────────────────────
 _cfg = get_config()                     # vault 可被 --vault 参数覆盖（见 main）
-VAULT = Path(_cfg["vault"])
+VAULT = Path(_cfg["vault"]) if _cfg["vault"] else None   # None = 未配置
 CACHE = Path.home() / ".claude" / "save-memory-graph.json"
 CACHE_VERSION = 3  # 解析结构变更（alias、代码段剥离）后递增；不匹配时旧缓存整批失效重建
 
@@ -476,6 +476,9 @@ def main():
     if args.vault:
         global VAULT
         VAULT = Path(args.vault)
+    if VAULT is None:
+        print("未配置 vault：请运行 /save-memory-setup，或在 ~/.claude/save-memory.json 写入 {\"vault\": \"<你的 Obsidian 仓库路径>\"}")
+        sys.exit(1)
     sys.exit(args.func(args))
 
 

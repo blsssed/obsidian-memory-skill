@@ -2,7 +2,7 @@
 
 ## Context
 
-v0.2.0 已交付四件套（hooks 自动总结/索引注入、graph.py 混合召回、/garden-memory）。真实使用暴露的问题决定了 v3 的形态：hooks 被用户停用（token 成本/黑盒/W_TITLE 权重顾虑），自动化必须转为 opt-in；配置硬编码 4 处无法发布；黑链事故证明 prompt 约束会漏，格式规则需要确定性保障。
+v0.2.0 已交付四件套（hooks 自动总结/索引注入、graph.py 混合召回、/garden-memory）。真实使用暴露的问题决定了 v3 的形态：hooks 的默认开启形态在真实使用中暴露了成本与可观测性顾虑，自动化必须转为 opt-in；配置外置后无法预置他人机器的路径，vault 必须经 /save-memory-setup 或配置文件提供；黑链事故证明 prompt 窄约束会漏，格式规则需要确定性保障。
 
 ## 目标/非目标
 

@@ -10,6 +10,9 @@ __pycache__/
 .vscode/
 *.swp
 
+# 内部文档（不公开）
+PUBLISHING.md
+
 # 运行时产物（不属于仓库）
 *.log
 save-memory.json

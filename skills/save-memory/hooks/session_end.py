@@ -21,7 +21,7 @@ from pathlib import Path
 
 # ── 配置副本：与 scripts/memory_config.py（canonical）保持同步，改动需三处同步 ──
 CONFIG_PATH = Path.home() / ".claude" / "save-memory.json"
-DEFAULTS = {"vault": r"C:\Users\HONOR\Documents\Obsidian Vault", "memory_dir": "AI记忆"}
+DEFAULTS = {"vault": "", "memory_dir": "AI记忆"}
 
 MIN_ROUNDS = 5
 TIMEOUT_SEC = 280                      # 复杂会话的总结需要数分钟；settings 里 hook timeout 应设 300
@@ -116,6 +116,10 @@ def run_nested(transcript_path):
 def main():
     if os.environ.get("SAVE_MEMORY_RUNNING"):
         log("action=skip reason=nested_recursion")  # 嵌套会话的 SessionEnd，防递归
+        return
+
+    if not CFG["vault"]:
+        log("action=skip reason=vault_not_configured")  # 未配置，先运行 /save-memory-setup
         return
 
     try:

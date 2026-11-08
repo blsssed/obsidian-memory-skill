@@ -21,5 +21,5 @@
 
 - 新增文件：`SKILL.md`、`references/extraction-rules.md`、`references/note-template.md`、`references/merge-rules.md`、`README.md`
 - 新增全局安装：`~/.claude/skills/save-memory/`
-- 外部副作用：向用户 vault（`C:\Users\HONOR\Documents\Obsidian Vault\AI记忆\`）写入 markdown 笔记
+- 外部副作用：向用户 vault 的 `AI记忆/` 目录写入 markdown 笔记
 - 不修改任何现有系统代码；无运行时依赖（仅使用 Claude Code 内置工具）
