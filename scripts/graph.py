@@ -22,6 +22,7 @@ from pathlib import Path
 # ── 配置常量区（调参只改这里） ─────────────────────────────
 VAULT = Path(os.environ.get("SAVE_MEMORY_VAULT", r"C:\Users\HONOR\Documents\Obsidian Vault"))
 CACHE = Path.home() / ".claude" / "save-memory-graph.json"
+CACHE_VERSION = 2  # 边结构变更（alias 字段）后递增；不匹配时旧缓存整批失效重建
 
 W_TAG, W_TITLE, W_BODY = 2.0, 3.0, 1.0   # 标签/标题/正文 命中基础分
 BODY_OCC_CAP = 3                           # 正文同一关键词出现次数计分上限
@@ -53,7 +54,7 @@ SYNONYM_GROUPS = [
 ]
 # ───────────────────────────────────────────────────────────
 
-LINK_RE = re.compile(r"(?<!!)\[\[([^\]|#]+)(?:#[^\]|]*)?(?:\|[^\]]*)?\]\]")  # 排除 ![[嵌入]]
+LINK_RE = re.compile(r"(?<!!)\[\[([^\]|#]+)(?:#[^\]|]*)?(?:\|([^\]]*))?\]\]")  # 排除 ![[嵌入]]，捕获目标与别名
 EDGE_KEYS = ("related", "solved_by", "solves", "supersedes", "superseded_by", "part_of")
 
 
@@ -99,7 +100,7 @@ def link_names(value):
         return []
     if isinstance(value, list):
         return [m for item in value for m in link_names(item)]
-    return [m.strip() for m in LINK_RE.findall(str(value))]
+    return [m[0].strip() for m in LINK_RE.findall(str(value))]
 
 
 def parse_tags(value):
@@ -134,12 +135,16 @@ def parse_note(path, mtime):
     for key in EDGE_KEYS:
         for target in link_names(fm.get(key)):
             note.edges.append({"to": target, "type": key})
-    # 正文双链（去重）
+    # 正文双链（去重；别名存入边，供 check 检测自动补全误链）
     seen = {(e["to"], e["type"]) for e in note.edges}
-    for target in LINK_RE.findall(note.body):
-        if (target.strip(), "wikilink") not in seen:
-            note.edges.append({"to": target.strip(), "type": "wikilink"})
-            seen.add((target.strip(), "wikilink"))
+    for target, alias in LINK_RE.findall(note.body):
+        target = target.strip()
+        if (target, "wikilink") not in seen:
+            edge = {"to": target, "type": "wikilink"}
+            if alias.strip():
+                edge["alias"] = alias.strip()
+            note.edges.append(edge)
+            seen.add((target, "wikilink"))
 
     for line in note.body.splitlines():
         s = line.strip().lstrip("#").strip()
@@ -166,7 +171,7 @@ def build(verbose=True):
 
     for path, mtime in files.items():
         cached = cache.get(path.stem)
-        if cached and cached.get("mtime") == mtime:
+        if cached and cached.get("mtime") == mtime and cached.get("v") == CACHE_VERSION:
             note = Note(path, mtime)
             note.tags = cached["tags"]
             note.edges = cached["edges"]
@@ -185,7 +190,7 @@ def build(verbose=True):
     if changed and graph:
         CACHE.parent.mkdir(parents=True, exist_ok=True)
         CACHE.write_text(json.dumps({
-            n.name: {"mtime": n.mtime, "tags": n.tags, "edges": n.edges,
+            n.name: {"v": CACHE_VERSION, "mtime": n.mtime, "tags": n.tags, "edges": n.edges,
                      "body": n.body, "first_line": n.first_line, "updated": n.updated}
             for n in graph.values()
         }, ensure_ascii=False), encoding="utf-8")
@@ -335,23 +340,42 @@ def cmd_expand(args):
 
 def cmd_check(args):
     graph = build(verbose=False)
-    red = []
+    mem_prefix = str(VAULT / "AI记忆")
+    red, cross, alias_bad = [], [], []
     for note in graph.values():
+        in_mem = str(note.path).startswith(mem_prefix)
         for edge in note.edges:
-            if edge["to"] not in graph:
-                red.append((note.name, edge["to"]))
-    if not red:
-        print("没有红链，知识库链接健康")
+            target = edge["to"]
+            if target not in graph:
+                red.append((note.name, target))
+            elif in_mem and not str(graph[target].path).startswith(mem_prefix):
+                if (note.name, target) not in cross:
+                    cross.append((note.name, target))
+            alias = edge.get("alias", "")
+            if alias and coverage(alias, target) < 0.5:
+                if (note.name, target, alias) not in alias_bad:
+                    alias_bad.append((note.name, target, alias))
+    if not (red or cross or alias_bad):
+        print("链接健康：无红链、无可疑跨目录链接、无可疑别名链接")
         return 0
-    print("发现 %d 条红链：" % len(red))
-    for src, target in red:
-        best, best_cov = "", 0.0
-        for name in graph:
-            cov = coverage(target, name)
-            if cov > best_cov:
-                best, best_cov = name, cov
-        hint = "（最接近的现有笔记：%s %.2f）" % (best, best_cov) if best_cov >= 0.5 else ""
-        print("  %s → [[%s]] %s" % (src, target, hint))
+    if red:
+        print("发现 %d 条红链（目标不存在）：" % len(red))
+        for src, target in red:
+            best, best_cov = "", 0.0
+            for name in graph:
+                cov = coverage(target, name)
+                if cov > best_cov:
+                    best, best_cov = name, cov
+            hint = "（最接近：%s %.2f）" % (best, best_cov) if best_cov >= 0.5 else ""
+            print("  %s → [[%s]] %s" % (src, target, hint))
+    if cross:
+        print("发现 %d 条跨目录链接（AI记忆/ → 其他目录；对话中明确提及的可保留）：" % len(cross))
+        for src, target in cross:
+            print("  %s → [[%s]]" % (src, target))
+    if alias_bad:
+        print("发现 %d 条可疑别名链接（别名与目标名差异过大，疑似自动补全误链）：" % len(alias_bad))
+        for src, target, alias in alias_bad:
+            print("  %s → [[%s]] 别名「%s」" % (src, target, alias))
     return 0
 
 
