@@ -14,15 +14,17 @@
 """
 import argparse
 import json
-import os
 import re
 import sys
 from pathlib import Path
 
+from memory_config import get_config   # 同目录模块，脚本运行时 sys.path[0] 即本目录
+
 # ── 配置常量区（调参只改这里） ─────────────────────────────
-VAULT = Path(os.environ.get("SAVE_MEMORY_VAULT", r"C:\Users\HONOR\Documents\Obsidian Vault"))
+_cfg = get_config()                     # vault 可被 --vault 参数覆盖（见 main）
+VAULT = Path(_cfg["vault"])
 CACHE = Path.home() / ".claude" / "save-memory-graph.json"
-CACHE_VERSION = 2  # 边结构变更（alias 字段）后递增；不匹配时旧缓存整批失效重建
+CACHE_VERSION = 3  # 解析结构变更（alias、代码段剥离）后递增；不匹配时旧缓存整批失效重建
 
 W_TAG, W_TITLE, W_BODY = 2.0, 3.0, 1.0   # 标签/标题/正文 命中基础分
 BODY_OCC_CAP = 3                           # 正文同一关键词出现次数计分上限
@@ -55,6 +57,13 @@ SYNONYM_GROUPS = [
 # ───────────────────────────────────────────────────────────
 
 LINK_RE = re.compile(r"(?<!!)\[\[([^\]|#]+)(?:#[^\]|]*)?(?:\|([^\]]*))?\]\]")  # 排除 ![[嵌入]]，捕获目标与别名
+FENCE_RE = re.compile(r"```.*?(?:```|\Z)", re.S)   # 围栏代码块（含未闭合）
+CODE_SPAN_RE = re.compile(r"`[^`\n]+`")            # 行内代码
+
+
+def strip_code(text):
+    """剥掉代码段，防止 `` `[[` `` 等代码内的方括号被解析成链接。"""
+    return CODE_SPAN_RE.sub("", FENCE_RE.sub("", text))
 EDGE_KEYS = ("related", "solved_by", "solves", "supersedes", "superseded_by", "part_of")
 
 
@@ -135,9 +144,9 @@ def parse_note(path, mtime):
     for key in EDGE_KEYS:
         for target in link_names(fm.get(key)):
             note.edges.append({"to": target, "type": key})
-    # 正文双链（去重；别名存入边，供 check 检测自动补全误链）
+    # 正文双链（去重；别名存入边，供 check 检测自动补全误链；代码段内不解析）
     seen = {(e["to"], e["type"]) for e in note.edges}
-    for target, alias in LINK_RE.findall(note.body):
+    for target, alias in LINK_RE.findall(strip_code(note.body)):
         target = target.strip()
         if (target, "wikilink") not in seen:
             edge = {"to": target, "type": "wikilink"}
@@ -379,6 +388,57 @@ def cmd_check(args):
     return 0
 
 
+def cmd_record(args):
+    """种子笔记 recall_count +1：只重写 frontmatter 段，正文一字不动。"""
+    graph = build(verbose=False)
+    done, missing = [], []
+    for name in args.notes:
+        note = graph.get(name)
+        if note is None:
+            missing.append(name)
+            continue
+        try:
+            text = note.path.read_text(encoding="utf-8")
+        except OSError as e:
+            print("读取失败：%s（%s）" % (name, e))
+            continue
+        if not text.startswith("---"):
+            print("无 frontmatter，跳过：%s" % name)
+            continue
+        nl = text.find("\n")
+        end = text.find("\n---", nl)
+        body = text[end + 4:]                       # 正文原样保留
+        lines = text[nl + 1:end].splitlines()
+        new_lines, count, found = [], 0, False
+        for line in lines:
+            if line.strip().startswith("recall_count:"):
+                val = line.split(":", 1)[1].strip()
+                count = int(val) + 1 if val.isdigit() else 1
+                new_lines.append("recall_count: %d" % count)
+                found = True
+            else:
+                new_lines.append(line)
+        if not found:
+            new_lines.append("recall_count: 1")
+            count = 1
+        new_text = "---\n" + "\n".join(new_lines) + "\n---" + body
+        # 安全校验：新文件必须以未动的原正文结尾，且长度只增不减
+        if not (new_text.endswith(body) and len(new_text) > len(body)):
+            print("重写校验失败，放弃写入：%s" % name)
+            continue
+        try:
+            note.path.write_text(new_text, encoding="utf-8", newline="")
+        except OSError as e:
+            print("写入失败：%s（%s）" % (name, e))
+            continue
+        done.append((name, count))
+    for name, count in done:
+        print("recall_count → %d：%s" % (count, name))
+    for name in missing:
+        print("笔记不存在：%s" % name)
+    return 1 if missing else 0
+
+
 def cmd_build(args):
     build(verbose=True)
     return 0
@@ -390,9 +450,14 @@ def main():
     except AttributeError:
         pass
     ap = argparse.ArgumentParser(description="save-memory 图谱工具")
+    ap.add_argument("--vault", help="覆盖 vault 路径（优先级链最高层）")
     sub = ap.add_subparsers(dest="cmd", required=True)
 
     sub.add_parser("build").set_defaults(func=cmd_build)
+
+    p_rec = sub.add_parser("record", help="种子笔记 recall_count +1（只改 frontmatter）")
+    p_rec.add_argument("notes", nargs="+")
+    p_rec.set_defaults(func=cmd_record)
 
     p_exp = sub.add_parser("expand", help="从种子笔记 BFS 扩展")
     p_exp.add_argument("note")
@@ -408,6 +473,9 @@ def main():
     sub.add_parser("check", help="红链检测").set_defaults(func=cmd_check)
 
     args = ap.parse_args()
+    if args.vault:
+        global VAULT
+        VAULT = Path(args.vault)
     sys.exit(args.func(args))
 
 

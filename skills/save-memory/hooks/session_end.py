@@ -10,7 +10,7 @@
      恒定存在，不能单独作标记；嵌套 claude -p 由本脚本设置该标记）
   2. 读 stdin payload（transcript_path / reason）
   3. 统计用户消息轮数：<5 轮静默跳过；≥5 轮嵌套 claude -p 执行提取流程
-  4. 日志写 ~/.claude/save-memory.log；失败用 systemMessage 提示用户
+  4. 日志写 ~/.claude/save-memory.log，每行带 action=skip|done|fail 三态与轮数，可 grep 对账；失败时用 systemMessage 提示用户
 """
 import json
 import os
@@ -19,10 +19,32 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
+# ── 配置副本：与 scripts/memory_config.py（canonical）保持同步，改动需三处同步 ──
+CONFIG_PATH = Path.home() / ".claude" / "save-memory.json"
+DEFAULTS = {"vault": r"C:\Users\HONOR\Documents\Obsidian Vault", "memory_dir": "AI记忆"}
+
 MIN_ROUNDS = 5
 TIMEOUT_SEC = 280                      # 复杂会话的总结需要数分钟；settings 里 hook timeout 应设 300
 LOG_FILE = Path.home() / ".claude" / "save-memory.log"
-VAULT = os.environ.get("SAVE_MEMORY_VAULT", r"C:\Users\HONOR\Documents\Obsidian Vault")
+
+
+def load_config():
+    """优先级链副本：环境变量 > 配置文件 > 内置默认（hook 无命令行层）。坏 JSON 静默降级。"""
+    cfg = dict(DEFAULTS)
+    try:
+        data = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
+        if isinstance(data, dict):
+            cfg.update({k: v for k, v in data.items() if v})
+    except (OSError, ValueError):
+        pass
+    env_vault = os.environ.get("SAVE_MEMORY_VAULT")
+    if env_vault:
+        cfg["vault"] = env_vault
+    return cfg
+
+
+CFG = load_config()
+VAULT = CFG["vault"]
 # 嵌套 claude.exe 在 Windows 上需要 git-bash；hook 环境可能没有该变量，显式兜底
 GIT_BASH = os.environ.get("CLAUDE_CODE_GIT_BASH_PATH", r"D:\develop\Git\bin\bash.exe")
 
@@ -93,40 +115,45 @@ def run_nested(transcript_path):
 
 def main():
     if os.environ.get("SAVE_MEMORY_RUNNING"):
-        return  # 嵌套会话的 SessionEnd，防递归直接退出
+        log("action=skip reason=nested_recursion")  # 嵌套会话的 SessionEnd，防递归
+        return
 
     try:
         payload = json.load(sys.stdin)
     except (ValueError, OSError):
-        return  # 无合法 payload（手动运行等），静默退出
+        log("action=skip reason=no_valid_payload")  # 无合法 payload（手动运行等）
+        return
 
     transcript_path = payload.get("transcript_path")
     reason = payload.get("reason", "other")
     if not transcript_path or not os.path.isfile(transcript_path):
-        log("skip: no transcript (reason=%s)" % reason)
+        log("action=skip reason=no_transcript end_reason=%s" % reason)
         return
 
     try:
         rounds = count_rounds(transcript_path)
     except OSError as e:
-        log("error: parse transcript failed: %s" % e)
+        log("action=fail reason=parse_transcript end_reason=%s err=%s" % (reason, e))
         return
 
-    log("session end (reason=%s, rounds=%d)" % (reason, rounds))
     if rounds < MIN_ROUNDS:
-        return  # 短会话，静默跳过
+        log("action=skip reason=short_session end_reason=%s rounds=%d min=%d" % (reason, rounds, MIN_ROUNDS))
+        return
 
     try:
         result = run_nested(transcript_path)
-        log("nested done: rc=%s, output=%s" % (
-            result.returncode, (result.stdout or "")[:300].replace("\n", " ")))
-        if result.returncode != 0:
+        if result.returncode == 0:
+            log("action=done end_reason=%s rounds=%d output=%s" % (
+                reason, rounds, (result.stdout or "")[:300].replace("\n", " ")))
+        else:
+            log("action=fail reason=nested_nonzero end_reason=%s rounds=%d rc=%s output=%s" % (
+                reason, rounds, result.returncode, (result.stdout or "")[:300].replace("\n", " ")))
             print(json.dumps({"systemMessage": "save-memory 自动总结未成功，详见 ~/.claude/save-memory.log"},
                              ensure_ascii=False))
     except subprocess.TimeoutExpired:
-        log("error: nested call timeout (%ds)" % TIMEOUT_SEC)
+        log("action=fail reason=timeout end_reason=%s rounds=%d timeout=%ds" % (reason, rounds, TIMEOUT_SEC))
     except Exception as e:  # noqa: BLE001 —— hook 里任何异常都不能影响会话退出
-        log("error: nested call failed: %s" % e)
+        log("action=fail reason=exception end_reason=%s rounds=%d err=%s" % (reason, rounds, e))
 
 
 if __name__ == "__main__":

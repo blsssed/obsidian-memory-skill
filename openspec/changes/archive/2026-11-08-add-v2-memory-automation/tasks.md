@@ -12,7 +12,8 @@
 
 - [x] 2.1 实现 `hooks/session_start.py`：扫描 AI记忆/ 生成索引（标题|tags|updated 倒序，≤40 行），以结构化 JSON additionalContext 输出；空目录不输出。验证：直接运行检查 JSON 合法且行数受限
 - [x] 2.2 实现 `hooks/session_end.py`：读 stdin payload → SAVE_MEMORY_RUNNING 防递归检查 → 解析 transcript 统计 human 轮数 → <5 轮退出 / ≥5 轮嵌套 `claude -p`（acceptEdits + allowedTools + --add-dir）→ 日志写 ~/.claude/save-memory.log。验证：短/长 transcript 各模拟一次，行为分叉正确
-- [ ] 2.3 嵌套调用端到端验证一次：确认笔记落盘、子会话结束不递归、日志有记录。验证：vault 出现新笔记且 save-memory.log 无异常
+- [x] 2.3 嵌套调用端到端验证一次：确认笔记落盘、子会话结束不递归、日志有记录。验证：vault 出现新笔记且 save-memory.log 无异常
+  - 备注（2026-11-08 用户决策）：机制层已验证（嵌套调用成功、超时保护触发、SessionStart 注入真实会话生效）；用户因 token 成本/黑盒/标题权重停用 hooks，全量端到端验证随停用一并搁置。hooks 作为 opt-in 代码保留
 
 ## 3. SKILL.md 流程升级
 

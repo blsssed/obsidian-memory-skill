@@ -13,8 +13,29 @@ import os
 import sys
 from pathlib import Path
 
-VAULT = Path(os.environ.get("SAVE_MEMORY_VAULT", r"C:\Users\HONOR\Documents\Obsidian Vault"))
-MEM_DIR = VAULT / "AI记忆"
+# ── 配置副本：与 scripts/memory_config.py（canonical）保持同步，改动需三处同步 ──
+CONFIG_PATH = Path.home() / ".claude" / "save-memory.json"
+DEFAULTS = {"vault": r"C:\Users\HONOR\Documents\Obsidian Vault", "memory_dir": "AI记忆"}
+
+
+def load_config():
+    """优先级链副本：环境变量 > 配置文件 > 内置默认。坏 JSON 静默降级。"""
+    cfg = dict(DEFAULTS)
+    try:
+        data = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
+        if isinstance(data, dict):
+            cfg.update({k: v for k, v in data.items() if v})
+    except (OSError, ValueError):
+        pass
+    env_vault = os.environ.get("SAVE_MEMORY_VAULT")
+    if env_vault:
+        cfg["vault"] = env_vault
+    return cfg
+
+
+CFG = load_config()
+VAULT = Path(CFG["vault"])
+MEM_DIR = VAULT / CFG["memory_dir"]
 MAX_ROWS = 40
 
 

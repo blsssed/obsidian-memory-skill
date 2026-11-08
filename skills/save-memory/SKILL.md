@@ -4,20 +4,34 @@ description: 总结当前对话中的经验教训并写入 Obsidian 笔记库，
 license: MIT
 metadata:
   author: mason
-  version: "0.2.0"
+  version: "0.3.0"
 ---
 
 # Obsidian 对话记忆
 
 把当前会话中有价值的知识沉淀到 Obsidian vault，并能在后续任务中召回。知识以笔记形式积累，通过 `[[双链]]` 和 frontmatter 类型化边融入知识图谱；召回基于图谱多跳扩展打分（scripts/graph.py），会话结束/开始由 hooks 自动总结与注入索引（README 有安装说明）。
 
-## 配置（安装时按需修改这一处）
+## 配置
 
-- **VAULT 路径**：`C:\Users\HONOR\Documents\Obsidian Vault`
-- **记忆目录**：`<VAULT>/AI记忆/`（经验笔记，不存在时创建）
-- **素材目录**：`<VAULT>/AI记忆/snippets/`（纯文本块，不存在时创建）
-- **图谱脚本**：`<skill目录>/scripts/graph.py`（零依赖，`py -3 scripts/graph.py build|recall|expand|check`）
-- **Hooks**：`<skill目录>/hooks/`（session_end.py 自动总结、session_start.py 索引注入）
+配置文件：`~/.claude/save-memory.json`（UTF-8 JSON；不存在或损坏时先执行下方"安装"小节创建）：
+
+```json
+{ "vault": "<Obsidian 仓库路径>", "memory_dir": "AI记忆", "snippet_dir": "snippets" }
+```
+
+- 脚本与 hooks 自动读取同一配置，优先级：命令行 `--vault` > 环境变量 `SAVE_MEMORY_VAULT` > 配置文件 > 内置默认；坏 JSON 静默降级，工具不崩
+- 下文 `<VAULT>`、`<记忆目录>`、`<素材目录>` 指配置值；`<skill目录>` 是本 SKILL.md 所在目录
+- 图谱脚本：`py -3 <skill目录>/scripts/graph.py build|recall|expand|check|record`（零依赖）
+- Hooks 代码在 `<skill目录>/hooks/`，**默认关闭不注册**，opt-in 说明见 README
+
+## 安装：/save-memory-setup —— 对话式配置（一次性低频动作）
+
+1. 先读 `~/.claude/save-memory.json`：已存在且 vault 有效，汇报现状后结束。
+2. 询问用户 Obsidian vault 贴路径进来，用 Glob 验证目录真实存在；不存在则重新询问。
+3. 确认记忆目录名（默认 AI记忆）与素材目录名（默认 snippets），用户没意见就用默认。
+4. Write 写入 `~/.claude/save-memory.json`（UTF-8）。
+5. 运行 `py -3 <skill目录>/scripts/graph.py build` 验证能扫描 vault。
+6. 汇报：配置文件位置、扫到的笔记数、可选的 hooks 注册方式（默认关闭，见 README）。
 
 ## 流程一：/save-memory —— 总结并写入
 
@@ -26,7 +40,7 @@ metadata:
 1. **提取**：读取 [references/extraction-rules.md](references/extraction-rules.md)，从当前对话上下文提取五类知识。白名单是**封闭世界**——情境理由（用户在备考等）不构成提取依据，唯一例外是用户显式要求保存（标注 `source: user-requested`）。提取后**必须先输出提取审计表**（候选知识 / 命中类目编号 / 判定理由），类目为"无"的丢弃。若没有任何候选命中，明确告知用户"本次对话没有值得保存的内容"，到此结束。
 2. **检索**：用 Glob/Grep 在 `<VAULT>/AI记忆/` 中搜索同主题已有笔记——用提取出的主题词、tags、笔记标题关键词各搜一遍。双链目标可以是用户笔记（标题须来自对话上下文），但**不为寻找建链目标扫描 vault 其他目录**。
 3. **合并判定**：读取 [references/merge-rules.md](references/merge-rules.md)，对每条提取出的知识判定走哪条路径（新建 / 域级合并 / 追加 / 标注取代）。
-4. **写入**：读取 [references/note-template.md](references/note-template.md)，按模板生成或更新笔记。超过 10 行的代码/配置**外置到 snippets/**，正文只留链接和一两行经验。写入前必须用 Glob 验证每个 `[[双链]]` 目标真实存在；只链真实文件。双链用裸目标名（`[[目标名]]`），别名仅当与目标语义一致时才写（如 `[[Spring Cloud 微服务|Eureka]]` 这类真实别称）；链接只写在记忆笔记一侧，不修改用户笔记。
+4. **写入**：读取 [references/note-template.md](references/note-template.md)，按模板生成或更新笔记。超过 10 行的代码/配置**外置到 snippets/**，正文只留链接和一两行经验。写入前必须用 Glob 验证每个 `[[双链]]` 目标真实存在；只链真实文件。双链用裸目标名（`[[目标名]]`），别名仅当与目标语义一致时才写（如 `[[Spring Cloud 微服务|Eureka]]` 这类真实别称）；链接只写在记忆笔记一侧，不修改用户笔记。**写盘后对新建/更新的文件运行 `py -3 <skill目录>/scripts/validate.py --note <文件>`，检出问题当次修复后再汇报。**
 5. **汇报**：向用户列出本次新建了哪些笔记、更新了哪些笔记、建立了哪些链接（含外置的 snippet），一句话说明每条知识的去向。
 
 ## 流程二：/recall —— 图谱混合召回
@@ -39,12 +53,13 @@ metadata:
    脚本完成同义词扩词 → 标签/正文双通道种子计分 → 知识图谱一跳扩展（跳数衰减 × 边类型系数）→ 总分排序 → 字数预算内输出。种子笔记输出全文（单篇截断），邻居只出标题+首行与到达边类型。
 3. 邻居笔记如需完整内容，再读取其全文深读。
 4. 把与当前任务相关的要点（结论、命令、坑）注入上下文，并在回答中注明来自哪篇笔记；经 supersedes/superseded_by 边到达的笔记标注已过时，谨慎采用。
+5. 对本次命中为**种子**的笔记（输出中标 ★ 的篇目，不含邻居）运行 `py -3 <skill目录>/scripts/graph.py record <笔记名...>`，维护 recall_count 供园艺识别零召回笔记；召回无命中则跳过本步。
 5. 双通道及同义词扩展后均无命中，告知用户"没有找到相关历史记忆"，正常继续任务。
 
 ## 流程三：/garden-memory —— 记忆园艺（只报告，确认后修复）
 
 1. 运行 `py -3 <skill目录>/scripts/graph.py check`，列出红链（指向不存在笔记的双链）及最接近的现有笔记建议。
-2. 在 `AI记忆/` 中检查：主题重叠的薄笔记（<10 行，建议合并）、同义或大小写不一致的 tags（如 mcp vs MCP，建议统一）、子主题小节超过 ~5 个的域笔记（建议拆分）。
+2. 在 `AI记忆/` 中检查：主题重叠的薄笔记（<10 行，建议合并）、同义或大小写不一致的 tags（如 mcp vs MCP，建议统一）、子主题小节超过 ~5 个的域笔记（建议拆分）。另运行 `py -3 <skill目录>/scripts/validate.py` 汇总格式问题；用 Grep 找 `recall_count: 0`，结合 created 日期列出**创建超过 14 天且从未被召回**的笔记（建议归档或合并）。
 3. 输出问题清单与修复建议，**默认不修改任何文件**。
 4. 用户对具体条目逐项确认后，才执行对应修复，且仅作用于 `AI记忆/`。
 

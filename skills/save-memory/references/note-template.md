@@ -30,6 +30,7 @@ tags: [2~5 个主题词, 小写, 中英不限]
 source: claude-code
 created: YYYY-MM-DD
 updated: YYYY-MM-DD
+recall_count: 0                     # 可选：被 /recall 命中为种子的次数，由 graph.py record 维护
 related: ["[[相关笔记名]]"]        # 可选，泛相关
 solved_by: "[[解法笔记名]]"        # 可选，本笔记是问题时用
 supersedes: "[[被取代的旧笔记]]"   # 可选，本笔记取代了谁

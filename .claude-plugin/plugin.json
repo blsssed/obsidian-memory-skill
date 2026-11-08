@@ -1,0 +1,10 @@
+{
+  "name": "save-memory",
+  "description": "把对话经验沉淀到 Obsidian vault：/save-memory 总结写入、/recall 图谱混合召回、/garden-memory 健康体检，零第三方依赖",
+  "version": "0.3.0",
+  "author": {
+    "name": "mason"
+  },
+  "license": "MIT",
+  "keywords": ["obsidian", "memory", "knowledge-graph", "notes"]
+}
