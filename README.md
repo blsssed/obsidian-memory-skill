@@ -2,7 +2,7 @@
 
 [中文](#中文) | [English](#english)
 
-把 Claude Code 对话中的经验沉淀到你的 Obsidian 笔记库——踩过的坑、可复用的命令、关键决策，不再随会话结束而丢失。
+把 Claude Code 对话中的经验沉淀到你的 Obsidian 笔记库——踩过的坑、可复用的命令、关键决策，不再随会话结束而丢失，构建自己的本地obsidian知识库。
 
 ## 中文
 
@@ -26,7 +26,8 @@ MCP server 拿不到对话历史——工具只接收模型调用时传入的参
 **方式一：plugin（推荐）**
 
 ```bash
-claude plugin marketplace add mason/obsidian-memory-skill
+# 本地目录安装也可：claude plugin marketplace add <绝对路径>
+claude plugin marketplace add https://github.com/blsssed/obsidian-memory-skill
 claude plugin install save-memory@save-memory
 ```
 
@@ -35,7 +36,7 @@ claude plugin install save-memory@save-memory
 **方式二：手动复制**（路径固定，适合想启用 hooks 的用户）
 
 ```bash
-git clone https://github.com/mason/obsidian-memory-skill.git
+git clone https://github.com/blsssed/obsidian-memory-skill.git
 mkdir -p ~/.claude/skills/save-memory
 cp -r obsidian-memory-skill/skills/save-memory/* ~/.claude/skills/save-memory/
 ```
@@ -156,7 +157,8 @@ MCP servers can't see conversation history — tools only receive arguments pass
 **Option 1: plugin (recommended)**
 
 ```bash
-claude plugin marketplace add mason/obsidian-memory-skill
+# A local path also works: claude plugin marketplace add <absolute-path>
+claude plugin marketplace add https://github.com/blsssed/obsidian-memory-skill
 claude plugin install save-memory@save-memory
 ```
 
@@ -165,7 +167,7 @@ The skill is then available as `save-memory:save-memory` (plugin namespace). Upd
 **Option 2: manual copy** (fixed paths; best if you want hooks)
 
 ```bash
-git clone https://github.com/mason/obsidian-memory-skill.git
+git clone https://github.com/blsssed/obsidian-memory-skill.git
 mkdir -p ~/.claude/skills/save-memory
 cp -r obsidian-memory-skill/skills/save-memory/* ~/.claude/skills/save-memory/
 ```

@@ -1,0 +1,6 @@
+# 统一按文本管理，检出时使用平台换行符；避免 Windows 编辑造成的全文件 diff
+* text=auto
+*.py text eol=lf
+*.md text
+*.json text
+*.sh text eol=lf
