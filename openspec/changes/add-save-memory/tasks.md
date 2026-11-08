@@ -23,3 +23,10 @@
 ## 5. 版本管理
 
 - [x] 5.1 `git init` + 编写 `.gitignore` + 首次提交全部文件。验证：`git log` 显示初始提交，`git status` 干净
+
+## 6. 提取规则加固（v0.1.1，实测反馈）
+
+- [x] 6.1 重写 `references/extraction-rules.md`：封闭世界总则、提取审计表、标准文档知识排除、素材解耦进白名单 #2。验证：无情境豁免通道，审计表为强制步骤
+- [x] 6.2 `references/note-template.md` 增加 snippet 模板与目录结构；`references/merge-rules.md` 增加域级合并规则与分裂信号。验证：与 spec 修订逐项对应
+- [x] 6.3 `SKILL.md` 更新（素材目录、审计表步骤、版本 0.1.1）并同步全局安装。验证：`~/.claude/skills/save-memory/` 与 repo 一致
+- [x] 6.4 清理实测噪音笔记：删《LLM 采样参数速查》，《LLM API限流与重试》重写为《LLM API工程经验》+ tenacity snippet 外置。验证：vault 无红链

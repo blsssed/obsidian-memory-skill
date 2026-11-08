@@ -4,7 +4,7 @@ description: 总结当前对话中的经验教训并写入 Obsidian 笔记库，
 license: MIT
 metadata:
   author: mason
-  version: "0.1.0"
+  version: "0.1.1"
 ---
 
 # Obsidian 对话记忆
@@ -14,17 +14,18 @@ metadata:
 ## 配置（安装时按需修改这一处）
 
 - **VAULT 路径**：`C:\Users\HONOR\Documents\Obsidian Vault`
-- **记忆目录**：`<VAULT>/AI记忆/`（不存在时创建）
+- **记忆目录**：`<VAULT>/AI记忆/`（经验笔记，不存在时创建）
+- **素材目录**：`<VAULT>/AI记忆/snippets/`（纯文本块，不存在时创建）
 
 ## 流程一：/save-memory —— 总结并写入
 
 严格按以下顺序执行：
 
-1. **提取**：读取 [references/extraction-rules.md](references/extraction-rules.md)，从当前对话上下文提取五类知识。若全部规则都不命中（对话无可提取内容），明确告知用户"本次对话没有值得保存的内容"，到此结束，不创建任何文件。
+1. **提取**：读取 [references/extraction-rules.md](references/extraction-rules.md)，从当前对话上下文提取五类知识。白名单是**封闭世界**——情境理由（用户在备考等）不构成提取依据，唯一例外是用户显式要求保存（标注 `source: user-requested`）。提取后**必须先输出提取审计表**（候选知识 / 命中类目编号 / 判定理由），类目为"无"的丢弃。若没有任何候选命中，明确告知用户"本次对话没有值得保存的内容"，到此结束。
 2. **检索**：用 Glob/Grep 在 `<VAULT>/AI记忆/` 中搜索同主题已有笔记——用提取出的主题词、tags、笔记标题关键词各搜一遍；也搜索 vault 其他目录确认是否与用户既有笔记相关。
-3. **合并判定**：读取 [references/merge-rules.md](references/merge-rules.md)，对每条提取出的知识判定走哪条路径（新建 / 追加 / 标注取代）。
-4. **写入**：读取 [references/note-template.md](references/note-template.md)，按模板生成或更新笔记。写入前必须用 Glob 验证每个 `[[双链]]` 目标真实存在；只链真实文件。
-5. **汇报**：向用户列出本次新建了哪些笔记、更新了哪些笔记、建立了哪些链接，一句话说明每条知识的去向。
+3. **合并判定**：读取 [references/merge-rules.md](references/merge-rules.md)，对每条提取出的知识判定走哪条路径（新建 / 域级合并 / 追加 / 标注取代）。
+4. **写入**：读取 [references/note-template.md](references/note-template.md)，按模板生成或更新笔记。超过 10 行的代码/配置**外置到 snippets/**，正文只留链接和一两行经验。写入前必须用 Glob 验证每个 `[[双链]]` 目标真实存在；只链真实文件。
+5. **汇报**：向用户列出本次新建了哪些笔记、更新了哪些笔记、建立了哪些链接（含外置的 snippet），一句话说明每条知识的去向。
 
 ## 流程二：/recall —— 召回历史记忆
 
