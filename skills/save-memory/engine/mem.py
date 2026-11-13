@@ -28,7 +28,12 @@ import re
 import sys
 from pathlib import Path
 
-from memory_config import get_config   # 同目录模块，脚本运行时 sys.path[0] 即本目录
+from memory_config import (            # 同目录模块，脚本运行时 sys.path[0] 即本目录
+    SCORING_DEFAULTS,
+    SCORING_LIMITS,
+    get_config,
+    get_scoring,
+)
 from state import state_home, state_path
 import validate                        # 同目录模块
 
@@ -39,10 +44,15 @@ MEM_DIR = _cfg.get("memory_dir") or "AI记忆"             # 记忆目录名（v
 CACHE = state_home() / "save-memory-graph.json"
 CACHE_VERSION = 4  # v4：缓存 key 由 stem 改为 vault 内相对路径 + BOM 安全读取
 
-W_TAG, W_TITLE, W_BODY = 2.0, 3.0, 1.0   # 标签/标题/正文 命中基础分
-BODY_OCC_CAP = 3                           # 正文同一关键词出现次数计分上限
-MIN_TAG_COVERAGE = 0.6                     # 标签通道最低覆盖率：低于它视为弱包含（env→environment）不计分
-HOP_DECAY = 0.5                            # 每跳衰减
+# 打分参数：默认值仍是下面这套，但可以从配置文件的 "scoring" 段覆盖（面板可调）。
+# 优先级与 vault 一致，走 memory_config.get_scoring()；坏值静默回落默认。
+SCORING = get_scoring(_cfg)
+W_TAG = SCORING["tag_weight"]              # 标签命中基础分
+W_TITLE = SCORING["title_weight"]          # 标题命中基础分
+W_BODY = SCORING["body_weight"]            # 正文命中基础分
+BODY_OCC_CAP = SCORING["body_occ_cap"]     # 正文同一关键词出现次数计分上限
+MIN_TAG_COVERAGE = SCORING["min_tag_coverage"]   # 标签通道最低覆盖率：低于它视为弱包含（env→environment）不计分
+HOP_DECAY = SCORING["hop_decay"]           # 每跳衰减
 EDGE_COEF = {                              # 边类型系数
     "solved_by": 1.2, "solves": 1.2,
     "related": 1.0, "part_of": 1.0, "wikilink": 1.0,
@@ -275,12 +285,25 @@ def load_cached():
         return {}
 
 
+def vault_notes(root):
+    """vault 下的 Markdown 路径，跳过任何以点开头的目录或文件段。
+
+    Obsidian 把 ``.obsidian``（配置）、``.trash``（回收站）、``.smart-env`` 这类
+    目录藏起来不显示；把它们当笔记扫进来有两个坏处：回收站里删掉的笔记会被重新
+    召回，配置目录里的说明文也会变成"记忆"。以前的 ``rglob("*.md")`` 就是这样。
+    """
+    for path in root.rglob("*.md"):
+        if any(part.startswith(".") for part in path.relative_to(root).parts):
+            continue
+        yield path
+
+
 def build(verbose=True):
     """扫描 vault（mtime 增量），返回 Graph（key = vault 内相对路径）。"""
     cache = load_cached()
     graph = Graph()
     changed = False
-    files = {p: p.stat().st_mtime for p in VAULT.rglob("*.md")}
+    files = {p: p.stat().st_mtime for p in vault_notes(VAULT)}
 
     for path, mtime in files.items():
         rel = path.relative_to(VAULT).as_posix()
@@ -721,6 +744,23 @@ def cmd_build(args):
     return 0
 
 
+def cmd_params(args):
+    """输出打分参数：默认值、允许区间、当前生效值。
+
+    面板的「召回参数」页靠它取数据 —— 默认值和区间只在这里定义一份，JS 不重复
+    抄一遍，否则两边迟早各说各的。没有 vault 也能跑，方便未配置时先看一眼。
+    """
+    payload = {
+        "defaults": dict(SCORING_DEFAULTS),
+        "limits": {key: {"min": low, "max": high}
+                   for key, (low, high) in SCORING_LIMITS.items()},
+        "effective": get_scoring(_cfg),
+        "configPath": str(state_path("save-memory.json")),
+    }
+    print(json.dumps(payload, ensure_ascii=False, indent=2))
+    return 0
+
+
 def main():
     try:
         sys.stdout.reconfigure(encoding="utf-8")   # Windows GBK 控制台下保证 UTF-8 输出
@@ -731,6 +771,9 @@ def main():
     sub = ap.add_subparsers(dest="cmd", required=True)
 
     sub.add_parser("build", help="构建图谱缓存").set_defaults(func=cmd_build)
+
+    sub.add_parser("params", help="打分参数：默认值 / 允许区间 / 当前生效值（JSON）"
+                   ).set_defaults(func=cmd_params, needs_vault=False)
 
     p = sub.add_parser("record", help="种子笔记 recall_count +1（只改 frontmatter）")
     p.add_argument("notes", nargs="+")
@@ -772,7 +815,7 @@ def main():
     if args.vault:
         global VAULT
         VAULT = Path(args.vault)
-    if VAULT is None:
+    if getattr(args, "needs_vault", True) and VAULT is None:
         print("未配置 vault：请运行 /save-memory-setup，或把 "
               "{\"vault\": \"<你的 Obsidian 仓库路径>\"} 写入 %s"
               % state_path("save-memory.json"))

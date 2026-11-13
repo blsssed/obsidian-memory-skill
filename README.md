@@ -58,8 +58,18 @@ mklink /J "$env:USERPROFILE\.codex\skills\save-memory" "<仓库路径>\skills\sa
 最小配置就是一个 vault 路径，写到状态目录下的 `save-memory.json`：
 
 ```json
-{ "vault": "<Obsidian 仓库路径>", "memory_dir": "AI记忆", "snippet_dir": "snippets" }
+{
+  "vault": "<Obsidian 仓库路径>",
+  "memory_dir": "AI记忆",
+  "snippet_dir": "snippets",
+  "scoring": {
+    "title_weight": 3.0, "tag_weight": 2.0, "body_weight": 1.0,
+    "body_occ_cap": 3, "min_tag_coverage": 0.6, "hop_decay": 0.5
+  }
+}
 ```
+
+`scoring` 整段可以省略：省略时等于上面这组默认值，与 v0.4.0 的硬编码常量逐项相等，升级后排名不变。单项写错（非数字、负数、越界）会被**忽略并回落默认，不夹紧**——写 1000 不会被悄悄改成 20，那样你会以为它生效了。想确认当前生效值，跑 `mem.py params`。
 
 **查找顺序**（`mem.py` 未配置时会直接打印期望路径）：
 
@@ -107,6 +117,7 @@ py -3 <引擎> check-links <笔记...>       # 校验指定笔记的双链目标
 py -3 <引擎> validate [--note 文件]      # 格式校验
 py -3 <引擎> record <笔记名...>          # 手动维护 recall_count
 py -3 <引擎> build                       # 重建/增量更新图谱缓存
+py -3 <引擎> params                     # 打分参数：默认值 / 区间 / 当前生效值（JSON）
 ```
 
 这些命令**可以直接在终端跑**，不经过任何 agent——引擎是独立可用的。
@@ -168,9 +179,9 @@ py -3 -m unittest discover -s tests        # Windows
 python3 -m unittest discover -s tests      # macOS / Linux
 ```
 
-81 个用例，标准库 `unittest`（不装 pytest），不需要预先配置 vault——每个用例自建隔离的临时库，不碰你真实的 Obsidian 仓库。
+105 个用例，标准库 `unittest`（不装 pytest），不需要预先配置 vault——每个用例自建隔离的临时库，不碰你真实的 Obsidian 仓库。
 
-覆盖：frontmatter / 双链 / 代码段剥离、标签覆盖率与关键词词边界、种子打分与图谱扩展衰减、BOM 与同名笔记的构建、`record` 的正文保全与 BOM 保持、红链与跨目录检测、`validate` 的格式规则。
+覆盖：frontmatter / 双链 / 代码段剥离、标签覆盖率与关键词词边界、种子打分与图谱扩展衰减、BOM 与同名笔记的构建（含隐藏目录被跳过）、`record` 的正文保全与 BOM 保持、红链与跨目录检测、`validate` 的格式规则，以及 `scoring` 段真的驱动引擎——其中一条用子进程验证：改 `title_weight` 后召回排名确实翻转。
 
 ### 路线图
 
@@ -181,9 +192,11 @@ python3 -m unittest discover -s tests      # macOS / Linux
 - [x] `recall_count` 使用统计 + 零召回园艺报告
 - [x] **移除 hooks**，引擎与宿主解耦（`SAVE_MEMORY_HOME` + 状态目录）
 - [x] `brief` / `find` / `check-links` / `validate` 子命令——能力不再依赖宿主专有工具
-- [x] 81 个单测，锁住 BOM / 同名笔记 / 词边界 / 覆盖率阈值
+- [x] 105 个单测，锁住 BOM / 同名笔记 / 词边界 / 覆盖率阈值 / 打分参数回落
 - [x] **Codex CLI 适配**（按需加载 + 沙箱内可执行引擎）
 - [x] 并发写保护（原子写 + 跨进程锁）
+- [x] 打分配置外置（`scoring` 段 + `params` 子命令；坏值回落默认而不是夹紧）
+- [x] 隐藏目录不再被索引（`.obsidian` / `.trash` 里的 Markdown 不进图谱，回收站里的笔记不会被召回）
 - [ ] 缓存改增量存储（触发条件：笔记数达到数百篇）
 - [ ] 语义检索（触发条件：500+ 篇；打分管线已解耦，可整体替换匹配器）
 - [ ] 视反馈：MCP server 版本
@@ -246,8 +259,18 @@ mklink /J "$env:USERPROFILE\.codex\skills\save-memory" "<repo>\skills\save-memor
 The minimum is one vault path, written to `save-memory.json` inside the state directory:
 
 ```json
-{ "vault": "<Obsidian vault path>", "memory_dir": "AI记忆", "snippet_dir": "snippets" }
+{
+  "vault": "<Obsidian vault path>",
+  "memory_dir": "AI记忆",
+  "snippet_dir": "snippets",
+  "scoring": {
+    "title_weight": 3.0, "tag_weight": 2.0, "body_weight": 1.0,
+    "body_occ_cap": 3, "min_tag_coverage": 0.6, "hop_decay": 0.5
+  }
+}
 ```
+
+The whole `scoring` section can be omitted — omitting it means the defaults above, which are item-by-item equal to the constants hard-coded in v0.4.0, so rankings don't change on upgrade. A bad item (non-number, negative, out of range) is **ignored and falls back to the default, never clamped**: writing 1000 won't be silently turned into 20 and make you think it took effect. Run `mem.py params` to see what is actually in effect.
 
 **Lookup order** (`mem.py` prints the expected path when unconfigured):
 
@@ -293,6 +316,7 @@ py -3 <engine> check-links <notes...>       # verify wikilink targets exist
 py -3 <engine> validate [--note file]       # format checks
 py -3 <engine> record <notes...>            # manual recall_count maintenance
 py -3 <engine> build                        # rebuild / incrementally update the cache
+py -3 <engine> params                       # scoring params: defaults / ranges / effective values (JSON)
 ```
 
 These run **straight from a terminal** — the engine is useful without any agent.
@@ -351,9 +375,9 @@ Typed edges: `related` / `solved_by` / `supersedes` / `superseded_by` / `part_of
 python3 -m unittest discover -s tests
 ```
 
-81 cases, stdlib `unittest` only (no pytest), no vault setup needed — every case builds its own throwaway vault and never touches your real Obsidian repo.
+105 cases, stdlib `unittest` only (no pytest), no vault setup needed — every case builds its own throwaway vault and never touches your real Obsidian repo.
 
-Covered: frontmatter / wikilink / code-fence parsing, tag coverage and keyword word boundaries, seed scoring and hop decay, graph building with BOM and duplicate names, `record` body preservation and BOM retention, red-link and cross-directory detection, `validate`'s format rules.
+Covered: frontmatter / wikilink / code-fence parsing, tag coverage and keyword word boundaries, seed scoring and hop decay, graph building with BOM and duplicate names (and hidden directories being skipped), `record` body preservation and BOM retention, red-link and cross-directory detection, `validate`'s format rules, and the scoring section driving the engine — including a subprocess check that changing `title_weight` really flips the recall ranking.
 
 ### Roadmap
 
@@ -364,9 +388,11 @@ Covered: frontmatter / wikilink / code-fence parsing, tag coverage and keyword w
 - [x] `recall_count` usage stats + zero-recall garden report
 - [x] **Hooks removed**; engine decoupled from the host (`SAVE_MEMORY_HOME` + state directory)
 - [x] `brief` / `find` / `check-links` / `validate` subcommands — no host-specific tools required
-- [x] 81 unit tests pinning BOM / duplicate names / word boundaries / coverage threshold
+- [x] 105 unit tests pinning BOM / duplicate names / word boundaries / coverage threshold / scoring fallback
 - [x] **Codex CLI adapter** (on-demand loading + engine executable inside the sandbox)
 - [x] Concurrent-write protection (atomic writes + cross-process lock)
+- [x] Scoring config externalized (`scoring` section + `params` subcommand; out-of-range values fall back to defaults instead of being clamped)
+- [x] Hidden directories no longer indexed (Markdown under `.obsidian` / `.trash` stays out of the graph)
 - [ ] Incremental cache storage (trigger: several hundred notes)
 - [ ] Semantic retrieval (trigger: 500+ notes; the scoring pipeline is already decoupled from the matcher)
 - [ ] Maybe: an MCP server variant

@@ -1,6 +1,23 @@
-# Changelog
+﻿# Changelog
 
 遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 结构；版本号遵循语义化版本。
+
+## [0.5.0] - 2026-11-13
+
+### Added
+
+- **打分配置外置**：`W_TITLE` / `W_TAG` / `W_BODY` / `MIN_TAG_COVERAGE` / `HOP_DECAY` / `BODY_OCC_CAP` 改由 `save-memory.json` 的 `scoring` 段驱动。缺省值与 v0.4.0 的硬编码常量逐项相等，老配置升级后排名不变
+- `mem.py params`：输出打分参数的默认值、允许区间与当前生效值（JSON）。没有 vault 也能跑，供桌面面板读取——默认值和区间只在 Python 侧定义一份，不在 JS 里抄第二份
+- `memory_config.get_scoring()`：坏值**静默回落而不是夹紧**。越界的 1000 会被当成没写，而不是被悄悄改成 20——后者会让用户以为保存生效了
+
+### Fixed
+
+- **隐藏目录不再被当成笔记**：`build()` 以前用 `VAULT.rglob("*.md")`，把 `.obsidian`（配置）、`.trash`（回收站）、`.smart-env` 这些目录里的 Markdown 也索引了 —— 后果是从回收站删掉的笔记会被重新召回，配置目录里的说明文也变成"记忆"。现在 `vault_notes()` 跳过任何以点开头的目录段与文件名
+
+### Changed
+
+- 召回排名现在可以被配置改变：同一批笔记、同一关键词，改 `title_weight` 后顺序不同（`tests/test_scoring_config.py` 用子进程锁住这条，不靠函数级断言自说自话）
+- 测试 81 → 103 个用例
 
 ## [0.4.0] - 2026-11-13
 

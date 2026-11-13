@@ -29,6 +29,19 @@ class BuildTests(unittest.TestCase):
                          ["AI记忆/子目录/重试策略.md", "AI记忆/重试策略.md"])
         self.assertEqual(len(g.resolve("重试策略")), 2)
 
+    def test_skips_dot_directories(self):
+        """锁住「隐藏目录不当笔记」：.trash 里的回收站笔记不能回到召回里。"""
+        write_note(self.root, "AI记忆/正常.md", NOTE_OK)
+        write_note(self.root, ".trash/删掉的笔记.md", NOTE_OK)
+        write_note(self.root, ".obsidian/说明.md", NOTE_OK)
+        write_note(self.root, ".hidden.md", NOTE_OK)
+        g = graph.build(verbose=False)
+        self.assertEqual(list(g), ["AI记忆/正常.md"])
+
+    def test_hidden_nested_deeper_still_skipped(self):
+        write_note(self.root, "AI记忆/正常.md", NOTE_OK)
+        write_note(self.root, "AI记忆/.stversions/旧版本.md", NOTE_OK)
+        self.assertEqual(list(graph.build(verbose=False)), ["AI记忆/正常.md"])
     def test_resolve_unknown_name_is_empty(self):
         write_note(self.root, "AI记忆/a.md", NOTE_OK)
         self.assertEqual(graph.build(verbose=False).resolve("不存在"), [])

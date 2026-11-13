@@ -1,10 +1,10 @@
----
+﻿---
 name: save-memory
 description: 总结当前对话中的经验教训并写入 Obsidian 笔记库，按任务关键词召回历史记忆，或对知识库做健康体检（红链/碎片/标签归并）。Use when the user says "save memory", "保存记忆", "总结对话", "写入笔记", "recall", "召回记忆", "garden memory", "整理记忆", "知识库体检", or when a task would clearly benefit from previously saved experience (re-encountering an error, resuming an old topic, asking "之前怎么解决的"). Proactively suggest recalling notes when relevant past experience may exist.
 license: MIT
 metadata:
   author: blsssed
-  version: "0.4.0"
+  version: "0.5.0"
 ---
 
 # Obsidian 对话记忆
@@ -28,18 +28,24 @@ py -3 <引擎> <子命令>
 | `check-links <笔记...>` | 校验指定笔记的双链目标是否存在 |
 | `validate [--note 文件]` | 格式校验（frontmatter / 文件名 / 编码） |
 | `record <笔记名...>` | 手动维护 `recall_count` |
+| `params` | 打分参数：默认值 / 允许区间 / 当前生效值（JSON，无 vault 也可用） |
 
 引擎零第三方依赖，纯标准库，跨平台。
 
 ## 配置
 
 ```
-{ "vault": "<Obsidian 仓库路径>", "memory_dir": "AI记忆", "snippet_dir": "snippets" }
+{ "vault": "<Obsidian 仓库路径>", "memory_dir": "AI记忆", "snippet_dir": "snippets",
+  "scoring": { "title_weight": 3.0, "tag_weight": 2.0, "body_weight": 1.0,
+               "body_occ_cap": 3, "min_tag_coverage": 0.6, "hop_decay": 0.5 } }
 ```
 
 - 优先级：命令行 `--vault` > 环境变量 `SAVE_MEMORY_VAULT` > 配置文件 > 内置默认
 - 坏 JSON 静默降级，工具不崩
 - 未配置时引擎会打印配置文件应该写到哪个路径
+- `scoring` 段可省略：省略（或整段不是对象）时等于上面的默认值，与 v0.4.0 的硬编码常量逐项相等
+- `scoring` 里单项不合法（非数字 / 越界）会被**忽略并回落默认**，不夹紧——越界的 1000 不会被悄悄改成 20，那样用户会以为保存生效了
+- 查看当前生效值：`params`（不带 vault 也能跑）
 
 **状态目录**（图谱缓存等）：`SAVE_MEMORY_HOME` > `~/.claude`（历史位置）> `~/.save-memory`。
 同一台机器上装多个 agent 时，用 `SAVE_MEMORY_HOME` 给它们各自隔离，避免抢同一份缓存。

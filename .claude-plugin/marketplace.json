@@ -1,4 +1,4 @@
-{
+﻿{
   "name": "save-memory",
   "metadata": {
     "description": "Obsidian 对话记忆 skill：经验沉淀、图谱召回、知识库体检"
@@ -10,7 +10,7 @@
     {
       "name": "save-memory",
       "description": "把对话经验沉淀到 Obsidian vault：总结写入、图谱混合召回、知识库体检，零第三方依赖，引擎与宿主解耦",
-      "version": "0.4.0",
+      "version": "0.5.0",
       "author": {
         "name": "blsssed"
       },
