@@ -3,19 +3,17 @@
 """save-memory 配置加载 —— canonical 实现。
 
 优先级链：命令行 --vault 参数 > SAVE_MEMORY_VAULT 环境变量 >
-~/.claude/save-memory.json > 内置默认。逐层赋值、有值才覆盖；
-配置文件缺失或 JSON 损坏时静默降级到下一层（本模块服务于
-hook/召回路径，不能因配置坏一行而罢工）。
+配置文件 > 内置默认。逐层赋值、有值才覆盖；配置文件缺失或损坏时
+静默降级到下一层（召回路径不能因配置坏一行而罢工）。
 
-注意：hooks/session_end.py 与 hooks/session_start.py 内联了本模块的
-同款副本（hook 进程不依赖 sys.path，自包含优先）。改动本文件时需
-同步三处。
+配置文件位置由 state.py 的 config_candidates() 决定：状态目录优先，
+历史位置 `~/.claude/save-memory.json` 作为兼容回退。
 """
 import json
 import os
 from pathlib import Path
 
-CONFIG_PATH = Path.home() / ".claude" / "save-memory.json"
+from state import config_candidates
 
 # 内置默认（最低优先级；vault 留空 = 未配置，工具会提示运行 /save-memory-setup）
 DEFAULTS = {
@@ -26,14 +24,15 @@ DEFAULTS = {
 
 
 def load_file_config():
-    """读配置文件；缺失或损坏返回 {}，调用方自然落到下一层。"""
-    try:
-        data = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        return {}
-    if not isinstance(data, dict):
-        return {}
-    return {k: v for k, v in data.items() if v}
+    """按候选顺序读配置文件；全部缺失或损坏时返回 {}，调用方落到下一层。"""
+    for path in config_candidates():
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        if isinstance(data, dict):
+            return {k: v for k, v in data.items() if v}
+    return {}
 
 
 def get_config(cli_vault=None):

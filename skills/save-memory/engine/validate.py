@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""save-memory 格式校验 —— 只管格式，链接健康归 graph.py check（职责边界见 spec）。
+"""save-memory 格式校验 —— 只管格式，链接健康归 mem.py check（职责边界见 spec）。
 
 检查项：
   1. frontmatter 必填字段：tags（2~5 个）、source、created、updated
@@ -15,7 +15,8 @@ import argparse
 import sys
 from pathlib import Path
 
-from memory_config import get_config   # 同目录模块；hooks 不用本脚本，无内联需求
+from memory_config import get_config   # 同目录模块
+from state import state_path
 
 # 高频泛词：标题含这些词易被 Obsidian 自动补全误链（黑链事故的命名规则落地）
 GENERIC_WORDS = {"笔记", "skill", "未命名", "note", "untitled", "doc", "文档"}
@@ -97,31 +98,12 @@ def validate_note(path):
     return errors, warnings
 
 
-def main():
-    try:
-        sys.stdout.reconfigure(encoding="utf-8")
-    except AttributeError:
-        pass
-    ap = argparse.ArgumentParser(description="save-memory 格式校验（只管格式，链接健康归 graph.py check）")
-    ap.add_argument("--note", help="校验单个文件")
-    args = ap.parse_args()
+def check_paths(targets):
+    """对一批文件跑格式校验并打印明细。返回 (error 总数, 篇数)。
 
-    cfg = get_config()
-    if not cfg["vault"]:
-        print("未配置 vault：请运行 /save-memory-setup，或在 ~/.claude/save-memory.json 写入 {\"vault\": \"<你的 Obsidian 仓库路径>\"}")
-        return 1
-    if args.note:
-        targets = [Path(args.note)]
-        if not targets[0].is_file():
-            print("文件不存在：%s" % args.note)
-            return 1
-    else:
-        mem_dir = Path(cfg["vault"]) / cfg["memory_dir"]
-        if not mem_dir.is_dir():
-            print("记忆目录不存在：%s（先运行 /save-memory-setup 配置）" % mem_dir)
-            return 1
-        targets = sorted(mem_dir.glob("*.md"))
-
+    抽出来是因为 `mem.py validate` 和 `validate.py` 的 CLI 都要用它，
+    以后加别的入口也不用复制这段循环。
+    """
     total_err = total_warn = 0
     for path in targets:
         errors, warnings = validate_note(path)
@@ -135,8 +117,39 @@ def main():
                 print("  ⚠ %s" % w)
     if total_err == 0 and total_warn == 0:
         print("校验通过：%d 篇笔记格式全部合格" % len(targets))
-        return 0
-    print("校验完成：%d 篇，%d 个 error，%d 个 warning" % (len(targets), total_err, total_warn))
+    else:
+        print("校验完成：%d 篇，%d 个 error，%d 个 warning" % (len(targets), total_err, total_warn))
+    return total_err, len(targets)
+
+
+def main():
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+    except AttributeError:
+        pass
+    ap = argparse.ArgumentParser(description="save-memory 格式校验（只管格式，链接健康归 mem.py check）")
+    ap.add_argument("--note", help="校验单个文件")
+    args = ap.parse_args()
+
+    cfg = get_config()
+    if not cfg["vault"]:
+        print("未配置 vault：请运行 /save-memory-setup，或把 "
+              "{\"vault\": \"<你的 Obsidian 仓库路径>\"} 写入 %s"
+              % state_path("save-memory.json"))
+        return 1
+    if args.note:
+        targets = [Path(args.note)]
+        if not targets[0].is_file():
+            print("文件不存在：%s" % args.note)
+            return 1
+    else:
+        mem_dir = Path(cfg["vault"]) / cfg["memory_dir"]
+        if not mem_dir.is_dir():
+            print("记忆目录不存在：%s（先运行 /save-memory-setup 配置）" % mem_dir)
+            return 1
+        targets = sorted(mem_dir.glob("*.md"))
+
+    total_err, _ = check_paths(targets)
     return 1 if total_err else 0
 
 

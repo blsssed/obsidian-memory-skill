@@ -2,6 +2,49 @@
 
 遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 结构；版本号遵循语义化版本。
 
+## [0.4.0] - 2026-11-13
+
+### Removed
+
+- **hooks 全部移除**（`SessionEnd` 自动总结、`SessionStart` 索引注入）。它们是唯一无法跨 agent 移植的组件：嵌套调用依赖 `claude -p`，transcript 是 Claude Code 私有格式。记忆索引改为 `mem.py brief`，由宿主在需要时调用
+- 已注册 hooks 的用户需要从 `~/.claude/settings.json` 里删掉对应的两段配置
+
+### Added
+
+- `engine/state.py`：状态目录解析（`SAVE_MEMORY_HOME` > `~/.claude` > `~/.save-memory`），多 agent 平台可隔离缓存
+- `mem.py brief`：记忆索引（标题 | tags | updated），替代 SessionStart hook
+- `mem.py find`：轻量定位，只出得分/标题/路径，不注入正文
+- `mem.py check-links`：校验指定笔记的双链目标是否真实存在，替代「用 Glob 逐个验证」
+- `mem.py validate`：格式校验收进统一入口（`validate.py` 仍可独立运行）
+- `recall --record`：召回时顺带维护 `recall_count`，不再依赖模型记得单独跑一次 `record`
+- `tests/`：81 个用例（标准库 `unittest`，零第三方依赖），锁住 BOM / 同名笔记 / 词边界 / 覆盖率阈值
+- `docs/hosts-codex.md`：Codex CLI v0.119.0 实机验证的适配说明——skills 目录安装、按需加载机制、沙箱可写范围、能力矩阵（含做不到的部分）
+- `write_atomic()` + 跨进程锁：两个 agent 同时运行时，不会再读到写了一半的缓存，`recall_count` 也不会因并发读改写而丢计数。拿不到锁时静默降级——正确性由原子写兜底，锁只负责减少竞争
+- 双库用法：`SAVE_MEMORY_HOME` 隔离状态目录 + 各自的 `save-memory.json`，Claude 与 Codex 可以用各自独立的 vault
+
+### Fixed
+
+- `mem.py brief` 不再把 `snippets/` 下的素材列进记忆索引——它们没有 `updated` 字段，混进来会让索引出现一列 `-`
+- 缓存写入失败（例如只读沙箱）不再让整次召回失败，只静默跳过缓存更新
+
+### Changed
+
+- `scripts/` → `engine/`；`graph.py` → `mem.py`（它早就不只做 graph 了）
+- `SKILL.md` 从 7.3KB 降到 4.0KB：流程拆到 `workflows/`，策略留在 `references/`，正文只保留索引与硬性约束
+- 流程里的宿主专有工具名（Glob / Grep）改成引擎子命令；只有没有命令执行能力的宿主才退化为文件搜索
+- `validate.py` 抽出 `check_paths()`，CLI 与 `mem.py validate` 共用同一段逻辑
+- 缓存版本递增到 4（key 语义变更，旧缓存整批失效重建）
+
+### Fixed
+
+- `graph.py` 读取笔记改用 `utf-8-sig`：带 BOM 的文件此前 `startswith("---")` 失败，frontmatter 不解析、YAML 原文混入正文参与打分，且类型化边（`solved_by` 加权、`superseded_by` 降权与 ⚠️已过时标注）全部降级为 `wikilink`
+- 图谱 key 由文件名（`path.stem`）改为 vault 内相对路径：不同目录下的同名笔记此前互相覆盖，被覆盖者从召回、红链检测、园艺中静默消失
+- 关键词匹配加入 ASCII 词边界：`ai` / `go` / `ui` 这类短词不再命中 `email`、`good`、`build` 里的子串；中文关键词仍按子串匹配，`429` 在中文邻接中照常命中
+- 标签通道加入最低覆盖率阈值（`MIN_TAG_COVERAGE = 0.6`）：`env`/`environment`、`api`/`apikey` 这类弱包含不再产生种子分
+- `session_end.py` 在嵌套总结结束后由 hook 进程直接调用 `validate.py` 校验本次写入的笔记，问题写入日志与 `systemMessage`——此前嵌套会话的 `allowedTools` 不含 `Bash`，SKILL.md 要求的「写盘后校验」在自动总结路径上根本无法执行
+- `graph.py record` 支持带 BOM 的文件并保持其原 BOM 状态；同名多篇笔记都会计数
+- `graph.py check` 的跨目录判定改用相对路径，记忆目录名读取配置而非硬编码 `AI记忆`
+
 ## [0.3.0] - 2026-11-08
 
 ### Added
