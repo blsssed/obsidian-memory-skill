@@ -133,8 +133,8 @@ def main():
 
     cfg = get_config()
     if not cfg["vault"]:
-        print("未配置 vault：请运行 /save-memory-setup，或把 "
-              "{\"vault\": \"<你的 Obsidian 仓库路径>\"} 写入 %s"
+        print("未配置 vault。把 {\"vault\": \"<你的 Obsidian 仓库路径>\"} 写入 %s，"
+              "或对 agent 说「用 save-memory 配置」。"
               % state_path("save-memory.json"))
         return 1
     if args.note:
@@ -145,7 +145,7 @@ def main():
     else:
         mem_dir = Path(cfg["vault"]) / cfg["memory_dir"]
         if not mem_dir.is_dir():
-            print("记忆目录不存在：%s（先运行 /save-memory-setup 配置）" % mem_dir)
+            print("记忆目录不存在：%s（在 vault 里新建该目录，或用 memory_dir 换名字）" % mem_dir)
             return 1
         targets = sorted(mem_dir.glob("*.md"))
 

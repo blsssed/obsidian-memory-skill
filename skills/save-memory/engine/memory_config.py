@@ -15,7 +15,7 @@ from pathlib import Path
 
 from state import config_candidates
 
-# 内置默认（最低优先级；vault 留空 = 未配置，工具会提示运行 /save-memory-setup）
+# 内置默认（最低优先级；vault 留空 = 未配置，工具会提示配置文件路径）
 DEFAULTS = {
     "vault": "",
     "memory_dir": "AI记忆",

@@ -21,13 +21,15 @@
 
 知识以普通 Markdown 笔记的形式躺在 `AI记忆/` 里，通过 `[[双链]]` 和 frontmatter 类型化边融入你已有的知识图谱，在 Obsidian 的 Graph View 里能看到它在生长。**数据完全属于你**，不经过任何服务器。
 
-### 三条命令的心智模型
+### 三个动作的心智模型
 
-| 命令 | 作用 | 类比 |
+| 动作 | 是什么 | 类比 |
 |---|---|---|
-| `brief` | 列出记忆库目录（标题 + tags + 更新时间，不读正文） | 翻书目录 |
-| `recall <关键词>` | 打分排序后返回正文 + 相关邻居 | 查索引找到具体章节 |
-| `save`（流程） | 提取 → 去重合并 → 写入笔记 | 写完一章归档 |
+| `brief`（命令） | 列出记忆库目录（标题 + tags + 更新时间，不读正文） | 翻书目录 |
+| `recall <关键词>`（命令） | 打分排序后返回正文 + 相关邻居 | 查索引找到具体章节 |
+| 保存（流程，无独立命令） | 提取 → 去重合并 → 写入笔记 | 写完一章归档 |
+
+前两个是**引擎命令**，可以直接在终端跑；第三个是**流程**——模型按 `workflows/extract.md` 一步步执行，底层调 `find` / `validate` 等命令。
 
 `brief` 和 `recall` 是两件事：前者让模型**知道有哪些记忆**，后者才**把内容取出来**。没有 `brief`，记忆库对模型是隐形的。
 
@@ -52,6 +54,52 @@ mklink /J "$env:USERPROFILE\.codex\skills\save-memory" "<仓库路径>\skills\sa
 ```
 
 **其他宿主**：skill 目录是自包含的（`SKILL.md` + `engine/` + `workflows/` + `references/`），整个复制或链接到宿主的 skills 目录即可。`SKILL.md` 的 frontmatter 只需 `name` + `description`。
+
+### 快速开始：三分钟跑通
+
+装好之后只差两步。
+
+**1. 告诉它你的库在哪**
+
+对 agent 说一句话：
+
+> 用 save-memory 配置一下，我的 Obsidian 库在 `D:\Notes`
+
+它会读 `workflows/setup.md`：先跑 `brief` 看现状，向你要路径，验证目录真实存在，再写 `save-memory.json`。不想让模型代劳就自己写这个文件（见下一节）。
+
+没配置时引擎不会瞎猜，它直接把期望路径打出来：
+
+```
+未配置 vault：请把配置写到 <状态目录>/save-memory.json
+```
+
+**2. 确认能读到库**
+
+```bash
+py -3 <引擎> brief
+```
+
+能列出记忆索引就通了（空库显示「共 0 篇」）。连 vault 都还没有，先跑 `params`——它不需要 vault，单纯验证引擎能跑。
+
+### 日常怎么用
+
+**这里没有 `/save-memory` 这样的斜杠命令。** skill 不是命令，它靠 `SKILL.md` 的 `description` 被模型识别后按需加载。想让它干活，用话术触发，或者直接跑引擎命令。
+
+四个动作，四句话：
+
+| 你想干的事 | 你可以这么说 | 模型会做什么 |
+|---|---|---|
+| 存下这次的经验 | 「把这次对话存进 Obsidian」「保存记忆」「总结一下这次踩的坑」 | 加载 `workflows/extract.md` → 先出提取审计表 → `find` 查重 → 新建 / 追加 / 标注取代 → `validate` |
+| 找回以前怎么解的 | 「之前那个 Redis 连接超时怎么解决的」「召回 MCP 相关的笔记」 | 加载 `workflows/recall.md` → `recall <关键词> --record` → 打分后的正文 + 一跳邻居 |
+| 整理、修剪笔记 | 「整理一下我的记忆库」「知识库体检」「清一下红链」 | 加载 `workflows/garden.md` → `check` + `validate` → **只报告不改**，你逐条确认后才动手 |
+| 配置 / 换库 | 「配置 save-memory」「换个 vault」 | 加载 `workflows/setup.md` |
+
+**自动触发不完全可靠**：`description` 里列了「保存记忆」「总结对话」「recall」「整理记忆」这类词，命中才加载。两个兜底办法：
+
+- **点名**：句子里带上 `save-memory`，例如「用 save-memory 把这轮存一下」
+- **绕过模型**：直接跑引擎命令（见[命令参考](#命令参考)），引擎完全不依赖 agent
+
+**想让记忆库「被看见」**：`brief` 的输出不会自动进上下文。把一句索引写进宿主的常驻指令（Claude 用 `~/.claude/CLAUDE.md`，Codex 用 `~/.codex/AGENTS.md`），模型才会在新会话里主动想起有这个库。这步可选——不做的话，只有你明确提到保存或召回时才用得上。
 
 ### 配置
 
@@ -222,13 +270,15 @@ You hit the same error you fixed three months ago, and you can't remember how �
 
 Notes are plain Markdown under `AI记忆/`, wired into your existing graph via `[[wikilinks]]` and typed frontmatter edges. **The data stays yours** — nothing leaves your machine.
 
-### The three-command mental model
+### The three-action mental model
 
-| Command | Does | Analogy |
+| Action | What it is | Analogy |
 |---|---|---|
-| `brief` | Lists the memory index (title + tags + updated, no bodies) | Table of contents |
-| `recall <keywords>` | Ranked scoring, returns bodies + neighbours | Look up a chapter |
-| `save` (workflow) | Extract → dedupe/merge → write | File a new chapter |
+| `brief` (command) | Lists the memory index (title + tags + updated, no bodies) | Table of contents |
+| `recall <keywords>` (command) | Ranked scoring, returns bodies + neighbours | Look up a chapter |
+| save (workflow, no standalone command) | Extract → dedupe/merge → write | File a new chapter |
+
+The first two are **engine commands** you can run straight from a terminal; the third is a **workflow** the model executes step by step from `workflows/extract.md`, calling `find` / `validate` underneath.
 
 `brief` and `recall` are different jobs: the former tells the model **what memories exist**, the latter **fetches the content**. Without `brief`, the whole vault is invisible to the model.
 
@@ -253,6 +303,52 @@ mklink /J "$env:USERPROFILE\.codex\skills\save-memory" "<repo>\skills\save-memor
 ```
 
 **Other hosts**: the directory is self-contained (`SKILL.md` + `engine/` + `workflows/` + `references/`) — copy or link the whole thing into the host's skills directory. The frontmatter only needs `name` + `description`.
+
+### Quick start: three minutes
+
+Two steps after installing.
+
+**1. Tell it where your vault is**
+
+One sentence to the agent:
+
+> Set up save-memory, my Obsidian vault is at `D:\Notes`
+
+It loads `workflows/setup.md`: runs `brief` first, asks for the path, verifies the directory exists, then writes `save-memory.json`. You can also write that file yourself (see the next section).
+
+When unconfigured the engine doesn't guess — it prints the path it expects:
+
+```
+No vault configured: write the config to <state-dir>/save-memory.json
+```
+
+**2. Confirm it can read the vault**
+
+```bash
+py -3 <engine> brief
+```
+
+If it lists the memory index, you're set (an empty vault shows "0 notes"). No vault yet? Run `params` — it needs no vault and just proves the engine executes.
+
+### Day-to-day usage
+
+**There is no `/save-memory` slash command.** A skill is not a command: it's loaded on demand when the model matches the `description` in `SKILL.md`. To make it act, trigger it with words — or run the engine directly.
+
+Four actions, four sentences:
+
+| What you want | What you can say | What the model does |
+|---|---|---|
+| Save this session | "save this to Obsidian", "save memory", "summarize what we just fixed" | Loads `workflows/extract.md` → prints an extraction audit table → `find` to dedupe → create / append / mark superseded → `validate` |
+| Find an old fix | "how did we fix that Redis timeout", "recall notes about MCP" | Loads `workflows/recall.md` → `recall <keywords> --record` → scored bodies + one-hop neighbours |
+| Tidy, prune notes | "garden my memory", "run a vault health check", "clean up red links" | Loads `workflows/garden.md` → `check` + `validate` → **reports only, no edits** until you approve each item |
+| Configure / switch vault | "configure save-memory", "switch vault" | Loads `workflows/setup.md` |
+
+**Auto-triggering isn't fully reliable**: the `description` lists "save memory", "recall", "garden memory" and similar words, and only matching prompts load it. Two fallbacks:
+
+- **Name it**: include `save-memory` in your sentence, e.g. "use save-memory to store this turn"
+- **Skip the model**: run the engine commands (see [Command reference](#command-reference)) — the engine doesn't depend on an agent at all
+
+**Making the vault visible**: `brief` output does not enter context by itself. Write a one-line index into the host's standing instructions (`~/.claude/CLAUDE.md` for Claude, `~/.codex/AGENTS.md` for Codex) so the model remembers the vault exists in a fresh session. Optional — without it, the vault is only used when you explicitly mention saving or recalling.
 
 ### Configuration
 

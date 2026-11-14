@@ -732,7 +732,7 @@ def cmd_validate(args):
     else:
         mem_dir = Path(VAULT) / MEM_DIR
         if not mem_dir.is_dir():
-            print("记忆目录不存在：%s" % mem_dir)
+            print("记忆目录不存在：%s（在 vault 里新建该目录，或用 memory_dir 换名字）" % mem_dir)
             return 1
         targets = sorted(mem_dir.glob("*.md"))
     total_err, _ = validate.check_paths(targets)
@@ -816,8 +816,8 @@ def main():
         global VAULT
         VAULT = Path(args.vault)
     if getattr(args, "needs_vault", True) and VAULT is None:
-        print("未配置 vault：请运行 /save-memory-setup，或把 "
-              "{\"vault\": \"<你的 Obsidian 仓库路径>\"} 写入 %s"
+        print("未配置 vault。把 {\"vault\": \"<你的 Obsidian 仓库路径>\"} 写入 %s，"
+              "或对 agent 说「用 save-memory 配置」。"
               % state_path("save-memory.json"))
         sys.exit(1)
     sys.exit(args.func(args))

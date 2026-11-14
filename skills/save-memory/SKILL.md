@@ -4,7 +4,7 @@ description: 总结当前对话中的经验教训并写入 Obsidian 笔记库，
 license: MIT
 metadata:
   author: blsssed
-  version: "0.5.0"
+  version: "0.5.1"
 ---
 
 # Obsidian 对话记忆

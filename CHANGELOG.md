@@ -2,6 +2,19 @@
 
 遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 结构；版本号遵循语义化版本。
 
+## [0.5.1] - 2026-11-14
+
+### Fixed
+
+- **不再教你运行不存在的命令**：v0.4.0 移除 hooks 与 slash command 之后，引擎的配置提示仍在说「请运行 /save-memory-setup」，而那个命令早已不存在——这是用户把触发方式记成斜杠命令的直接原因。现在改为给出两条真实路径：配置文件写到哪、或者对 agent 说「用 save-memory 配置」（`mem.py` × 2、`validate.py` × 1）
+- `记忆目录不存在` 的提示补上解决动作，`mem.py validate` 与 `validate.py` 两个入口文案一致
+- 流程标题与策略文件引用不再出现 `/save-memory`、`/garden-memory`、`/save-memory-setup` 这些命令名，改为中文动作名（「保存记忆」/「整理记忆」）——文档不该暗示存在一个不存在的入口
+
+### Added
+
+- README 新增两节：**快速开始**（配置 + 验证，两步跑通）与**日常怎么用**（四类意图 → 你说什么 → 内部走哪个流程），中英双语。明确写出**没有 `/save-memory` 斜杠命令**，触发靠 `description` 命中、点名 `save-memory`、或直接跑引擎三种方式
+- 心智模型表区分「引擎命令」与「流程」——原表把 `save` 写成命令，实际它没有独立命令
+
 ## [0.5.0] - 2026-11-13
 
 ### Added
