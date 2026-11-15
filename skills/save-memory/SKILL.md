@@ -1,10 +1,10 @@
-﻿---
+---
 name: save-memory
 description: 总结当前对话中的经验教训并写入 Obsidian 笔记库，按任务关键词召回历史记忆，或对知识库做健康体检（红链/碎片/标签归并）。Use when the user says "save memory", "保存记忆", "总结对话", "写入笔记", "recall", "召回记忆", "garden memory", "整理记忆", "知识库体检", or when a task would clearly benefit from previously saved experience (re-encountering an error, resuming an old topic, asking "之前怎么解决的"). Proactively suggest recalling notes when relevant past experience may exist.
 license: MIT
 metadata:
   author: blsssed
-  version: "0.6.0"
+  version: "0.6.1"
 ---
 
 # Obsidian 对话记忆

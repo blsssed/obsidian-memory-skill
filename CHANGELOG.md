@@ -1,6 +1,23 @@
-﻿# Changelog
+# Changelog
 
 遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 结构；版本号遵循语义化版本。
+
+## [0.6.1] - 2026-11-16
+
+### Fixed
+
+- **`SKILL.md` 带 UTF-8 BOM，Codex CLI 拒绝加载整个 skill**：`codex exec` 报 `failed to load skill ...: missing YAML frontmatter delimited by ---`，因为文件头是 `EF BB BF` 而不是 `---`。Claude Code 会跳过 BOM，Codex 的加载器不会 —— 同一份 skill 在 Claude 侧一直正常，在 Codex 侧其实从未加载成功。现在 `SKILL.md` 与 `CHANGELOG.md` 都去掉了 BOM，正文逐字未改
+- 这正是 v0.4.0 修 `parse_note` 时立的规矩（读笔记用 `utf-8-sig`，因为 BOM 会让 frontmatter 解析失败），但仓库自己的 `SKILL.md` 一直违反它
+
+### Added
+
+- `tests/test_skill_frontmatter.py`：锁住 `SKILL.md` 无 BOM、以 `---` 开头、frontmatter 含 `name` 与 `description`，以及 `commands/*.md` 无 BOM
+
+### Verified
+
+- Claude Code 2.1.322：`claude -p "/status"` 真实执行，返回真实 vault 路径、6 篇经验笔记、129 篇索引、缓存 v4
+- Codex CLI 0.119.0：修复前 `codex exec` 每次都打 `failed to load skill`；修复后该错误消失，skills 列表里出现 `save-memory`，`codex exec` 正常回话
+- 面板 `local.save-memory-panel` 0.3.0：`main.js`（36KB）与内联脚本（66KB）`node --check` 通过，浏览器预览渲染正常、无 console 错误；未连接宿主时显示「预览模式」降级提示而不是白屏
 
 ## [0.6.0] - 2026-11-16
 
