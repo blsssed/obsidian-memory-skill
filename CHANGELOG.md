@@ -2,6 +2,23 @@
 
 遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 结构；版本号遵循语义化版本。
 
+## [0.6.0] - 2026-11-16
+
+### Added
+
+- **5 个宿主斜杠命令**（`commands/`）：`/save-memory`、`/recall`、`/garden`、`/status`、`/setup`。每个命令只钉「什么时候走哪个流程」并指向 `workflows/` 里的那一份，不复制流程内容 —— 改流程不用改命令，命令也不会长成第二份文档
+- 安装方式写进 README：复制到 `~/.claude/commands/`（文件名即命令名），更新后重新复制。不加安装器 —— 不想让安装器去改用户的 `~/.claude`
+- 桌面面板 `local.save-memory-panel` 升到 0.3.0（面板源码另在本机 `frontend-test/save-memory-panel`）：新增「动作」页（体检 / 格式校验 / 试召回 / 重建图谱 / 清缓存，都不需要模型）、引擎路径与 python 命令搬进面板、显示每个配置项的**生效来源层**
+
+### Fixed
+
+- **README 与实际不符**：v0.5.1 写过「这里没有 `/save-memory` 这样的斜杠命令」，当时是对的（v0.4.0 删掉了 hooks 与命令）。现在命令是真的，那段改为「skill 本身不是命令，但仓库带可选命令」，并写清装了才有、Codex 侧没有对应机制
+
+### Verified
+
+- Claude Code 2.1.322：临时命令 `pi-smoke-probe` 经 `claude -p` 真实执行并返回标记；不存在的命令被明确拒绝（负对照）。随后 `/status` 真实调用引擎，输出真实 vault 路径与缓存统计
+- Codex CLI 0.119.0：`codex debug prompt-input "/test-sm hello"` 显示 `/test-sm hello` 原样作为普通文本交给模型，`~/.codex/prompts/test-sm.md` 未被读取 —— **Codex 侧不提供斜杠命令**，只写进文档，不假装支持
+
 ## [0.5.1] - 2026-11-14
 
 ### Fixed

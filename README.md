@@ -83,7 +83,7 @@ py -3 <引擎> brief
 
 ### 日常怎么用
 
-**这里没有 `/save-memory` 这样的斜杠命令。** skill 不是命令，它靠 `SKILL.md` 的 `description` 被模型识别后按需加载。想让它干活，用话术触发，或者直接跑引擎命令。
+skill 本身**不是命令**：它靠 `SKILL.md` 的 `description` 被模型识别后按需加载。不过从 v0.6.0 起仓库额外带了一套**宿主斜杠命令**（`commands/` 目录），装到宿主的命令目录后就有 `/save-memory`、`/recall`、`/garden`、`/status`、`/setup` —— 命令只钉「什么时候走哪个流程」，流程内容仍然只有 `workflows/` 一份。不装命令也能用，话术照样触发。
 
 四个动作，四句话：
 
@@ -100,6 +100,33 @@ py -3 <引擎> brief
 - **绕过模型**：直接跑引擎命令（见[命令参考](#命令参考)），引擎完全不依赖 agent
 
 **想让记忆库「被看见」**：`brief` 的输出不会自动进上下文。把一句索引写进宿主的常驻指令（Claude 用 `~/.claude/CLAUDE.md`，Codex 用 `~/.codex/AGENTS.md`），模型才会在新会话里主动想起有这个库。这步可选——不做的话，只有你明确提到保存或召回时才用得上。
+
+### 斜杠命令（可选，装一次）
+
+5 个文件在仓库的 `commands/` 里。Claude Code 读 `~/.claude/commands/*.md`，文件名就是命令名：
+
+```powershell
+# Windows PowerShell
+New-Item -ItemType Directory -Force "$env:USERPROFILE\.claude\commands" | Out-Null
+Copy-Item commands\*.md "$env:USERPROFILE\.claude\commands\" -Force
+```
+
+```bash
+# macOS / Linux
+mkdir -p ~/.claude/commands && cp commands/*.md ~/.claude/commands/
+```
+
+| 命令 | 干什么 |
+|---|---|
+| `/save-memory [补充要求]` | 走 extract 流程存这次对话；写完立刻 `check-links` + `validate`，红了当次改掉 |
+| `/recall <关键词...>` | 走 recall 流程，带 `--record`；关键词按你给的来，不被模型改写 |
+| `/garden [范围]` | 走 garden 流程：`check` + `validate` + 人工体检，**只报告不自动改** |
+| `/status` | 只读一眼：`params` 的 configPath 与生效权重、`brief` 的笔记数、缓存大小与版本 |
+| `/setup [vault 路径]` | 配置向导，桌面面板不可用时的兜底 |
+
+命令正文只做两件事：钉住「什么时候走哪个流程」、指向 `workflows/` 里的那一份。流程改了不用改命令，命令也不会长成第二份文档。更新仓库后重新复制一次即可——没有安装器，也不想让安装器去改你的 `~/.claude`。
+
+**Codex CLI 侧没有对应机制**：0.119 不读 `~/.codex/prompts/*.md`。实测 `codex debug prompt-input "/x y"` 会把 `/x y` 原样当普通文本交给模型，不会展开。Codex 里用 `/` 打开技能选择器，或直接在句子里点名 `save-memory`。细节见 [docs/hosts-codex.md](docs/hosts-codex.md)。
 
 ### 配置
 
@@ -332,7 +359,7 @@ If it lists the memory index, you're set (an empty vault shows "0 notes"). No va
 
 ### Day-to-day usage
 
-**There is no `/save-memory` slash command.** A skill is not a command: it's loaded on demand when the model matches the `description` in `SKILL.md`. To make it act, trigger it with words — or run the engine directly.
+**The skill is not itself a command.** It's loaded on demand when the model matches the `description` in `SKILL.md`. Since v0.6.0 the repo also ships a set of **host slash commands** (`commands/`): once installed into the host's command folder you get `/save-memory`, `/recall`, `/garden`, `/status`, `/setup`. The commands only pin *which workflow runs when* — the workflow text still lives in exactly one place, `workflows/`. Skipping them is fine; wording still triggers the skill.
 
 Four actions, four sentences:
 
@@ -349,6 +376,33 @@ Four actions, four sentences:
 - **Skip the model**: run the engine commands (see [Command reference](#command-reference)) — the engine doesn't depend on an agent at all
 
 **Making the vault visible**: `brief` output does not enter context by itself. Write a one-line index into the host's standing instructions (`~/.claude/CLAUDE.md` for Claude, `~/.codex/AGENTS.md` for Codex) so the model remembers the vault exists in a fresh session. Optional — without it, the vault is only used when you explicitly mention saving or recalling.
+
+### Slash commands (optional, install once)
+
+The five files live in `commands/`. Claude Code reads `~/.claude/commands/*.md` and the filename becomes the command:
+
+```powershell
+# Windows PowerShell
+New-Item -ItemType Directory -Force "$env:USERPROFILE\.claude\commands" | Out-Null
+Copy-Item commands\*.md "$env:USERPROFILE\.claude\commands\" -Force
+```
+
+```bash
+# macOS / Linux
+mkdir -p ~/.claude/commands && cp commands/*.md ~/.claude/commands/
+```
+
+| Command | What it does |
+|---|---|
+| `/save-memory [extra]` | Runs the extract workflow for this session; `check-links` + `validate` right after writing, and red links are fixed in the same turn |
+| `/recall <keywords...>` | Runs the recall workflow with `--record`; your keywords are used verbatim, not rewritten by the model |
+| `/garden [scope]` | Runs the garden workflow: `check` + `validate` + a manual pass, **reports only, no automatic edits** |
+| `/status` | Read-only snapshot: `params` configPath and effective weights, `brief` note count, cache size and version |
+| `/setup [vault path]` | Setup wizard, the fallback when the desktop panel is unavailable |
+
+A command body only does two things: pins when to run which workflow, and points at that one file under `workflows/`. Changing a workflow needs no command edit, and the command never becomes a second copy of the docs. After updating the repo, copy again — there is no installer, and we would rather not have one editing your `~/.claude`.
+
+**Codex CLI has no equivalent mechanism**: 0.119 does not read `~/.codex/prompts/*.md`. Measured: `codex debug prompt-input "/x y"` hands `/x y` to the model as plain text, unexpanded. In Codex use the `/` skill picker, or name `save-memory` in the sentence. Details in [docs/hosts-codex.md](docs/hosts-codex.md).
 
 ### Configuration
 

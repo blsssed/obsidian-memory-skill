@@ -4,7 +4,7 @@ description: 总结当前对话中的经验教训并写入 Obsidian 笔记库，
 license: MIT
 metadata:
   author: blsssed
-  version: "0.5.1"
+  version: "0.6.0"
 ---
 
 # Obsidian 对话记忆
@@ -31,6 +31,8 @@ py -3 <引擎> <子命令>
 | `params` | 打分参数：默认值 / 允许区间 / 当前生效值（JSON，无 vault 也可用） |
 
 引擎零第三方依赖，纯标准库，跨平台。
+
+> 仓库另带 5 个宿主斜杠命令（`commands/`：`/save-memory`、`/recall`、`/garden`、`/status`、`/setup`）。它们只钉「什么时候走哪个流程」，流程内容仍以 `workflows/` 为准——两者冲突时以本文件与 `workflows/` 为准。
 
 ## 配置
 

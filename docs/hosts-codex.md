@@ -93,6 +93,29 @@ py -3 ~/.codex/skills/save-memory/engine/mem.py --vault "<你的 vault>" recall 
 
 配置好后可以省掉 `--vault`（见下节）。
 
+### 没有自定义斜杠命令（实测，v0.119.0）
+
+仓库为 Claude Code 提供的 `commands/*.md`（`/save-memory`、`/recall`、`/garden`、`/status`、`/setup`）**在 Codex 侧不存在等价物**，所以不要往 `~/.codex/prompts/` 装。
+
+证据（本机 codex-cli 0.119.0）：
+
+```powershell
+# 放一个带唯一标记的 prompt 文件
+New-Item -ItemType Directory -Force "$env:USERPROFILE\.codex\prompts" | Out-Null
+'---`ndescription: smoke`n---`nMARKER_9931' | Set-Content "$env:USERPROFILE\.codex\prompts\test-sm.md"
+
+# 让 Codex 打印「模型实际收到什么」，不需要模型回答，也不需要登录
+codex debug prompt-input "/test-sm hello"
+```
+
+输出里 user message 的 `text` 就是字面量 `"/test-sm hello"`，`MARKER_9931` 一次都没出现 —— 说明该目录没有被读取、`/名字` 没有展开。二进制里也搜不到任何 `prompts` 目录拼接（只有 `memory/*/prompts.rs` 这类内部模块名），TUI 侧只有技能选择器（`Type to search skills`）。
+
+Codex 里的等价做法：
+
+- 输入 `/` 打开**技能选择器**，选 `save-memory`（技能目录已在索引里）
+- 或者直接在句子里点名 `save-memory` / 描述意图，靠 `description` 命中
+- 想要确定性动作，直接跑 `py -3 <引擎> check|validate|recall`（不经过模型，最稳）
+
 ## 配置与状态目录
 
 配置文件与 Claude 侧共用一套优先级：
